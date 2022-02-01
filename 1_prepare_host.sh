@@ -216,6 +216,7 @@ echo IPS=\\"${IPS}\\" >> ~/.bashrc
 echo node${ITER} > /proc/sys/kernel/hostname
 growpart /dev/sda 2
 xfs_growfs -d /
+sed -i -e "s|mirrorlist=|#mirrorlist=|g" -e "s|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g" /etc/yum.repos.d/CentOS-Linux-*
 EOF
 ITER=$(expr $ITER + 1)
 done
