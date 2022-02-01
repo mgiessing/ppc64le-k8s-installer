@@ -113,6 +113,11 @@ EOF
 
 systemctl restart NetworkManager
 
+if [ -x "$(command -v docker)" ]; then
+    echo "${GREEN}Detected docker, will configure iptables${NC}"
+    iptables -I FORWARD -i bridge0 -o bridge0 -j ACCEPT
+fi
+
 fi
 
 #DHCP settings for CECC
