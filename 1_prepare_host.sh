@@ -33,10 +33,10 @@ then
 fi
 
 echo -e "Checking SELinux..."
-
-if test "$(cat /etc/selinux/config | grep "^SELINUX=" | cut -d '=' -f2)" != "disabled"
+SE_STAT=$(cat /etc/selinux/config | grep "^SELINUX=" | cut -d '=' -f2)
+if [ "${SE_STAT}" = "enforcing" ]
 then
-    echo "SELinux is not disabled! Please change this in /etc/selinux/config and reboot!"
+    echo "SELinux set to enforcing is not tested! Please change to disabled or enforcing in /etc/selinux/config and reboot!"
     exit
 fi
 
