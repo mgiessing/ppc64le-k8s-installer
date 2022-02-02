@@ -212,7 +212,7 @@ for i in ${IPS};
 do
 sshpass -p 123456 ssh-copy-id -o "StrictHostKeyChecking no" root@${i}
 ssh -o StrictHostKeyChecking=no root@${i}  << EOF
-echo IPS=\\"${IPS}\\" >> ~/.bashrc
+echo "export IPS=\\"${IPS}\\"" >> ~/.bashrc
 echo node${ITER} > /proc/sys/kernel/hostname
 growpart /dev/sda 2
 xfs_growfs -d /
