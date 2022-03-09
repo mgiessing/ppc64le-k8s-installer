@@ -2,5 +2,6 @@
 
 echo "Installing Kubeflow..."
 cd ~
-wget https://ibm.box.com/shared/static/ltvuagymxq73cfdumpmf93ec4avani97.sh -O inst_kf_k8s.sh
-bash inst_kf_k8s.sh
+KUBEFLOW_VERSION=main
+wget https://raw.githubusercontent.com/lehrig/kubeflow-ppc64le-manifests/${KUBEFLOW_VERSION}/install_kubeflow.sh
+source install_kubeflow.sh
