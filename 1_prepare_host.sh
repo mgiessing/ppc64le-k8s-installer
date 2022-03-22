@@ -177,7 +177,7 @@ for ((i=1;i<=number;i++))
 do
     cp /var/lib/libvirt/qcow2/node.qcow2 /var/lib/libvirt/qcow2/node$i.qcow2
     echo -e "${GREEN}Installing VM $i...${NC}"
-    virt-install --name node$i --memory 16384 --vcpus 16 --disk /var/lib/libvirt/qcow2/node$i.qcow2,bus=scsi,size=100 --import --os-variant centos8 --noautoconsole
+    virt-install --name node$i --memory 16384 --vcpus 16 --disk /var/lib/libvirt/qcow2/node$i.qcow2,bus=scsi,size=100 --import --os-variant almalinux8 --noautoconsole
 done
 
 fi
