@@ -139,16 +139,29 @@ conda config --prepend channels https://opence.mit.edu
 conda create --name py38 python=3.8 -y
 conda init bash
 echo "conda activate py38" >> /root/.bashrc
+rm -rf Miniconda3-latest-Linux-ppc64le.sh
 source /root/.bashrc
 
-conda install -c conda-forge -y ruamel.yaml==0.16.10 jmespath==0.9.5 pbr==5.4.4 netaddr==0.7.19 jinja2==2.11.3 cryptography==2.8 && pip3 install ansible==2.9.27
+conda install -c conda-forge -y ruamel.yaml==0.16.10 jmespath==0.9.5 pbr==5.4.4 netaddr==0.7.19 jinja2==2.11.3 cryptography==2.8 && pip3 install ansible==2.9.27 requests
 
 cd ~
 rm -rf /root/kubespray
 git clone -b v2.15.1 https://github.com/kubernetes-sigs/kubespray.git
-wget https://ibm.box.com/shared/static/d9olpybowici8d0kbamblo1wv2tq7gfh.patch -O ppc64le.patch
+wget https://ibm.box.com/shared/static/d9olpybowici8d0kbamblo1wv2tq7gfh.patch -O kubespray/ppc64le.patch
+cd kubespray && git apply ppc64le.patch
 
-cd kubespray && git apply ../ppc64le.patch
+echo "Installing yq..."
+wget https://github.com/mikefarah/yq/releases/download/v4.24.5/yq_linux_ppc64le -O /usr/bin/yq && chmod +x /usr/bin/yq
+
+echo "Updating Kubernetes hashes..."
+cd /root/kubespray/scripts && python3 download_hash.py 1.21.11
+cd /root/kubespray && yq -i '.crictl_supported_versions += {"v1.21": "v1.21.0"}' roles/download/defaults/main.yml && \
+   yq -i '.crictl_checksums.ppc64le += {"v1.21.0": "0770100d30d430dbb67a58119ffed459856163ba01b6d71ac6fd4be7336253cf"}' roles/download/defaults/main.yml 
+ 
+cd /root/kubespray
+
+#sed -i "s/kube_version:.*/kube_version: v1.21.11/g" inventory/sample/group_vars/k8s-cluster/k8s-cluster.yml
+#sed -i "s/kube_version:.*/kube_version: v1.21.11/g" roles/kubespray-defaults/defaults/main.yaml
 
 ###
 # vi roles/network_plugin/calico/defaults/main.yml & edit calico_iptables_backend: "Legacy" zu "NFT"
@@ -175,6 +188,8 @@ declare -a IPS=(echo $IPS)
 EOF
 
 CONFIG_FILE=inventory/mycluster/hosts.yaml python3 contrib/inventory_builder/inventory.py ${IPS[@]}
+
+sed -i "s/kube_version:.*/kube_version: v1.21.11/g" /root/kubespray/inventory/mycluster/group_vars/k8s-cluster/k8s-cluster.yml
 
 echo "alias oc='kubectl'" >> /root/.bashrc
 echo "alias ocproject='kubectl config set-context --current --namespace'" >> /root/.bashrc
