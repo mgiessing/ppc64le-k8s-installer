@@ -12,7 +12,11 @@ NFS_SERVER=$(hostname -i)
 
 echo -e "Installing NFS provisioner"
 
-wget https://get.helm.sh/helm-v3.7.2-linux-ppc64le.tar.gz && tar -xvf helm* && mv linux-ppc64le/helm /usr/local/bin/helm && rm -rf helm-v* linux-ppc64le
+if ! command -v helm &> /dev/null
+then
+    wget https://get.helm.sh/helm-v3.7.2-linux-ppc64le.tar.gz && tar -xvf helm* && mv linux-ppc64le/helm /usr/local/bin/helm && rm -rf helm-v* linux-ppc64le
+fi
+
 helm repo add nfs-subdir-external-provisioner https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner/
 helm install nfs-subdir-external-provisioner nfs-subdir-external-provisioner/nfs-subdir-external-provisioner \
     --set nfs.server=${NFS_SERVER} \
