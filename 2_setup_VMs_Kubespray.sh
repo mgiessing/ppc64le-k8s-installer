@@ -79,7 +79,7 @@ then
     echo "conda activate py39" >> ${HOME}/.bashrc
     source ${HOME}/.bashrc
 
-    conda install cryptography=3.4.8 jinja2=2.11.3 pbr=5.4.4 ruamel.yaml.clib=0.2.6 pyyaml=6.0 MarkupSafe=1.1.1
+    conda install -y cryptography=3.4.8 jinja2=2.11.3 pbr=5.4.4 ruamel.yaml.clib=0.2.6 pyyaml=6.0 MarkupSafe=1.1.1
     pip3 install -r requirements-2.12.txt 
 fi
 
