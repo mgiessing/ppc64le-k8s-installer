@@ -66,6 +66,9 @@ exportfs -a
 #################
 fi
 
+rm -rf /opt/kubespray
+git clone -b v2.19.0 https://github.com/kubernetes-sigs/kubespray.git /opt/kubespray && cd /opt/kubespray
+
 ## Only on Ansible/Master node:
 if ! command -v ansible &> /dev/null
 then
@@ -82,9 +85,6 @@ then
     conda install -y cryptography=3.4.8 jinja2=2.11.3 pbr=5.4.4 ruamel.yaml.clib=0.2.6 pyyaml=6.0 MarkupSafe=1.1.1
     pip3 install -r requirements-2.12.txt 
 fi
-
-rm -rf /opt/kubespray
-git clone -b v2.19.0 https://github.com/kubernetes-sigs/kubespray.git /opt/kubespray && cd /opt/kubespray
 
 #yq used to replace containerd while it is not officially released for ppc (will come with 1.7.0)
 wget https://github.com/mikefarah/yq/releases/download/v4.26.1/yq_linux_ppc64le -O /usr/bin/yq && chmod +x /usr/bin/yq
