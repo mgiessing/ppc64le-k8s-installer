@@ -83,7 +83,7 @@ then
     source ${HOME}/.bashrc
 
     conda install -y cryptography=3.4.8 jinja2=2.11.3 pbr=5.4.4 ruamel.yaml.clib=0.2.6 pyyaml=6.0 MarkupSafe=1.1.1
-    pip3 install -r requirements-2.12.txt 
+    cd /opt/kubespray && pip3 install -r requirements-2.12.txt 
 fi
 
 #yq used to replace containerd while it is not officially released for ppc (will come with 1.7.0)
