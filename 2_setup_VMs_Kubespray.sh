@@ -90,7 +90,7 @@ fi
 wget https://github.com/mikefarah/yq/releases/download/v4.26.1/yq_linux_ppc64le -O /usr/bin/yq && chmod +x /usr/bin/yq
 sed -i "s/containerd_version: .*/containerd_version: 1.7.0-alpha.ppctest/g" roles/download/defaults/main.yml
 sed -i "s/containerd\/containerd/dmcgowan\/containerd/g" roles/download/defaults/main.yml
-yq '.containerd_archive_checksums.ppc64le += {"1.7.0-alpha.ppctest": "d9e84c97f48f57e7d8ca38741af078951da4e36c88f17e2835e0fb982f4968bc"}' roles/download/defaults/main.yml
+yq -i '.containerd_archive_checksums.ppc64le += {"1.7.0-alpha.ppctest": "d9e84c97f48f57e7d8ca38741af078951da4e36c88f17e2835e0fb982f4968bc"}' roles/download/defaults/main.yml
 
 
 sed -i "s/kube_version: .*/kube_version: v1.21.11/g" inventory/sample/group_vars/k8s_cluster/k8s-cluster.yml
