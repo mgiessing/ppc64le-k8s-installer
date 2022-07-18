@@ -77,13 +77,13 @@ then
     wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-$(uname -m).sh && bash Miniconda3-latest-Linux-$(uname -m).sh -b
     rm -rf Miniconda3-latest*.sh
     export PATH="${HOME}/miniconda3/bin:${PATH}"
-    conda create --name py39 python=3.9 -y
+    conda create --name py38 python=3.8 -y
     conda init bash
-    echo "conda activate py39" >> ${HOME}/.bashrc
+    echo "conda activate py38" >> ${HOME}/.bashrc
     source ${HOME}/.bashrc
 
-    conda install -y cryptography=3.4.8 jinja2=2.11.3 pbr=5.4.4 ruamel.yaml.clib=0.2.6 pyyaml=6.0 MarkupSafe=1.1.1
-    cd /opt/kubespray && pip3 install -r requirements-2.12.txt 
+    conda install -y cryptography=2.8 jinja2=2.11.3 pbr=5.4.4 ruamel.yaml.clib=0.2.6 pyyaml=6.0 MarkupSafe=1.1.1
+    cd /opt/kubespray && pip3 install -r requirements-2.9.txt 
 fi
 
 #yq used to replace containerd while it is not officially released for ppc (will come with 1.7.0)
