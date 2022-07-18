@@ -88,8 +88,8 @@ fi
 
 #yq used to replace containerd while it is not officially released for ppc (will come with 1.7.0)
 wget https://github.com/mikefarah/yq/releases/download/v4.26.1/yq_linux_ppc64le -O /usr/bin/yq && chmod +x /usr/bin/yq
-sed -i "s/containerd_version: .*/containerd_version: 1.7.0-alpha.ppctest/g" roles/download/defaults/main.yml
-sed -i "s/containerd\/containerd/dmcgowan\/containerd/g" roles/download/defaults/main.yml
+yq -i '.containerd_version = "1.7.0-alpha.ppctest"' roles/download/defaults/main.yml
+yq -i '.containerd_download_url = "https://github.com/dmcgowan/containerd/releases/download/v{{ containerd_version }}/containerd-{{ containerd_version }}-linux-{{ image_arch }}.tar.gz"' roles/download/defaults/main.yml
 yq -i '.containerd_archive_checksums.ppc64le += {"1.7.0-alpha.ppctest": "d9e84c97f48f57e7d8ca38741af078951da4e36c88f17e2835e0fb982f4968bc"}' roles/download/defaults/main.yml
 
 
