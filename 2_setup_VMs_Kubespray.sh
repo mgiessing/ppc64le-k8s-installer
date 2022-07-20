@@ -47,6 +47,39 @@ else
 fi
 done
 
+#Nach Docker Cred fragen
+echo -e "${ORANGE}Your docker.io account is needed to avoid 'pull rate limit' problems...${NC}"
+
+DOCKER_USER=""
+echo "docker.io user name:"
+read DOCKER_USER
+
+DOCKER_PW=""
+echo "docker.io password (input hidden):"
+read -s DOCKER_PW
+echo "Saving credentials..."
+
+AUTH="$(echo $DOCKER_USER:$DOCKER_PW  | base64)"
+
+#configure iptables
+for i in $IPS
+do
+ssh root@$i "iptables -P FORWARD ACCEPT && mkdir -p /root/.docker"
+done
+
+#save docker credentials
+for i in $IPS
+do
+ssh root@$i cat << EOF > /root/.docker/config.json
+{
+    "auths": {
+        "https://index.docker.io/v1/": {
+            "auth": "${AUTH}"
+        }
+    }
+}
+EOF
+done
 
 echo -e "${ORANGE}Do you want an NFS server installed on this node?${NC}"
 select choice in "Yes, please install an NFS server on this node" "No, I'm going to do that manually/provide my own"
