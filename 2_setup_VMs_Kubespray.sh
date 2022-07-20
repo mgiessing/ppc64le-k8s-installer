@@ -89,7 +89,7 @@ done
 
 if test $REPLY == 1
 then
-mkdir /export && chown -R nobody: /export
+mkdir -p /export && chown -R nobody: /export
 dnf install nfs-utils -y && systemctl enable --now nfs-server.service
 
 #This is insecure and should be fixed by changing database permissions inside the container (e.g. MySQL) and then set to 'root_squash'...
