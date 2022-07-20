@@ -47,6 +47,13 @@ else
 fi
 done
 
+#check for firewall - this does not end the script if an active firewall is found!
+for i in $IPS
+do
+ssh root@$i 'if [ `systemctl is-active firewalld` = "active" ]; then echo "Firewall is active - this is currently not supported" && exit; else echo "Firewall is deactivated - looks good!"; fi
+'
+done
+
 #Nach Docker Cred fragen
 echo -e "${ORANGE}Your docker.io account is needed to avoid 'pull rate limit' problems...${NC}"
 
