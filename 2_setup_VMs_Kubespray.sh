@@ -66,7 +66,7 @@ echo "docker.io password (input hidden):"
 read -s DOCKER_PW
 echo "Saving credentials..."
 
-AUTH="$(echo $DOCKER_USER:$DOCKER_PW  | base64)"
+AUTH="$(echo -n $DOCKER_USER:$DOCKER_PW  | base64)"
 
 #configure iptables
 for i in $IPS
