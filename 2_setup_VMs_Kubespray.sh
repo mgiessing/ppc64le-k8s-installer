@@ -48,10 +48,16 @@ fi
 done
 
 #check for firewall - this does not end the script if an active firewall is found!
+echo -e "Check if firewall daemon is active and open ports"
 for i in $IPS
 do
-ssh root@$i 'if [ `systemctl is-active firewalld` = "active" ]; then echo "Firewall is active - this is currently not supported" && exit; else echo "Firewall is deactivated - looks good!"; fi
-'
+ssh root@$i 'if [ `systemctl is-active firewalld` = "active" ]; then firewall-cmd --permanent --add-port=6443/tcp \
+   && firewall-cmd --permanent --add-port=2379-2380/tcp \
+   && firewall-cmd --permanent --add-port=10250/tcp \
+   && firewall-cmd --permanent --add-port=10251/tcp \
+   && firewall-cmd --permanent --add-port=10252/tcp \
+   && firewall-cmd --permanent --add-port=10255/tcp \
+   && firewall-cmd --reload; fi'
 done
 
 #Nach Docker Cred fragen
