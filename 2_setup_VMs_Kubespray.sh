@@ -132,8 +132,10 @@ done
 
 if test $REPLY == 1
 then
+if [ `systemctl is-active firewalld` = "active" ]; then firewall-cmd --permanent --add-service nfs && firewall-cmd --reload && systemctl restart nfs-server; fi
 mkdir -p /export && chown -R nobody: /export
 dnf install nfs-utils -y && systemctl enable --now nfs-server.service
+
 
 #This is insecure and should be fixed by changing database permissions inside the container (e.g. MySQL) and then set to 'root_squash'...
 sed -i '/\/export/d' /etc/exports
