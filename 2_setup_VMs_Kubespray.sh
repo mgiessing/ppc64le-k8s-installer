@@ -47,6 +47,30 @@ else
 fi
 done
 
+#Check for GPU Nodes
+echo -e "Checking if there are any GPU nodes available..."
+GPU_NODES=""
+for i in $IPS
+do
+    var=$(ssh root@$i 'if command -v pciutils &> /dev/null; then dnf install -y pciutils; fi && if [ -z "$(lspci | grep -i nvidia)" ]; then echo "no_gpu"; else echo "gpu"; fi')
+    if [ "$var" = "gpu" ]
+    then
+        echo "Found GPU on node $i!"
+        GPU_NODES="$GPU_NODES $i"
+    fi
+done
+
+#Check if nvidia is installed on GPU Nodes
+for i in $GPU_NODES
+do
+    var=$(ssh root@$i 'if ! command -v nvidia-smi &> /dev/null; then echo "not_installed"; fi')
+if [ "$var" = "not_installed" ]
+then
+    echo "Nvidia drivers are not installed on node $i, please do this first!"
+    exit
+fi
+done
+
 #check for firewall - this does not end the script if an active firewall is found!
 echo -e "Check if firewall daemon is active and open ports"
 for i in $IPS
