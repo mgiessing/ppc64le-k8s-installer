@@ -95,6 +95,7 @@ for i in $IPS
 do
 scp docker_config.json root@$i:/root/.docker/config.json
 done
+rm -rf docker_config.json
 
 echo -e "${ORANGE}Do you want an NFS server installed on this node?${NC}"
 select choice in "Yes, please install an NFS server on this node" "No, I'm going to do that manually/provide my own"
