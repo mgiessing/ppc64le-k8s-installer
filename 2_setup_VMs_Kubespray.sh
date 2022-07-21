@@ -68,6 +68,16 @@ echo "Saving credentials..."
 
 AUTH="$(echo -n $DOCKER_USER:$DOCKER_PW  | base64)"
 
+cat << EOF > docker_config.json
+{
+    "auths": {
+        "https://index.docker.io/v1/": {
+            "auth": "${AUTH}"
+        }
+    }
+}
+EOF
+
 #configure iptables
 for i in $IPS
 do
@@ -77,15 +87,7 @@ done
 #save docker credentials
 for i in $IPS
 do
-ssh root@$i cat << EOF > /root/.docker/config.json
-{
-    "auths": {
-        "https://index.docker.io/v1/": {
-            "auth": "${AUTH}"
-        }
-    }
-}
-EOF
+scp docker_config.json root@$i:/root/.docker/config.json
 done
 
 echo -e "${ORANGE}Do you want an NFS server installed on this node?${NC}"
