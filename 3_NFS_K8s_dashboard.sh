@@ -8,9 +8,12 @@ ORANGE='\033[0;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-NFS_SERVER=$(hostname -i)
+echo -e "Creating docker secret"
+kubectl create secret generic regcred --from-file=.dockerconfigjson=/root/.docker/config.json --type=kubernetes.io/dockerconfigjson
 
 echo -e "Installing NFS provisioner"
+
+NFS_SERVER=$(hostname -i)
 
 if ! command -v helm &> /dev/null
 then
