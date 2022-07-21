@@ -87,7 +87,7 @@ EOF
 #configure iptables
 for i in $IPS
 do
-ssh root@$i "iptables -P FORWARD ACCEPT && mkdir -p /root/.docker"
+ssh root@$i "dnf install iptables -y && iptables -P FORWARD ACCEPT && mkdir -p /root/.docker"
 done
 
 #save docker credentials
