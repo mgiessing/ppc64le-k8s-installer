@@ -52,7 +52,7 @@ echo -e "Checking if there are any GPU nodes available..."
 GPU_NODES=""
 for i in $IPS
 do
-    var=$(ssh root@$i 'if command -v pciutils &> /dev/null; then dnf install -y pciutils; fi && if [ -z "$(lspci | grep -i nvidia)" ]; then echo "no_gpu"; else echo "gpu"; fi')
+    var=$(ssh root@$i 'if ! command -v pciutils &> /dev/null; then dnf install -y pciutils; fi && if [ -z "$(lspci | grep -i nvidia)" ]; then echo "no_gpu"; else echo "gpu"; fi')
     if [ "$var" = "gpu" ]
     then
         echo "Found GPU on node $i!"
@@ -111,7 +111,7 @@ EOF
 #configure iptables
 for i in $IPS
 do
-ssh root@$i "dnf install iptables -y && iptables -P FORWARD ACCEPT && mkdir -p /root/.docker"
+ssh root@$i "if ! command -v iptables &> /dev/null; then dnf install -y iptables; fi  && iptables -P FORWARD ACCEPT && mkdir -p /root/.docker"
 done
 
 #save docker credentials
