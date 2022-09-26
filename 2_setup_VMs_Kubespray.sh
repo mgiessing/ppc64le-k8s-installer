@@ -27,8 +27,8 @@ if [ -z "$IPS" ]
 then
     echo "Enter the IPs of your servers (including this) seperated by space (e.g. '10.10.10.1 10.10.10.2')"
     read IPS
-    sed -i '/IPS=/d' /root/.bashrc 
-    echo "IPS=\"$IPS\"" >> /root/.bashrc
+    sed -i '/IPS=/d' ${HOME}/.bashrc 
+    echo "IPS=\"$IPS\"" >> ${HOME}/.bashrc
 else
     echo "${GREEN}Found the following IPs: ${IPS}${NC}"
 fi
@@ -47,6 +47,46 @@ else
 fi
 done
 
+#Check for GPU Nodes
+echo -e "Checking if there are any GPU nodes available..."
+GPU_NODES=""
+for i in $IPS
+do
+    var=$(ssh root@$i 'if ! command -v pciutils &> /dev/null; then dnf install -y pciutils; fi && if [ -z "$(lspci | grep -i nvidia)" ]; then echo "no_gpu"; else echo "gpu"; fi')
+    if [ "$var" = "gpu" ]
+    then
+        echo "Found GPU on node $i!"
+        GPU_NODES="$GPU_NODES $i"
+    fi
+done
+
+#Check if nvidia is installed on GPU Nodes
+for i in $GPU_NODES
+do
+    var=$(ssh root@$i 'if ! command -v nvidia-smi &> /dev/null; then echo "not_installed"; fi')
+if [ "$var" = "not_installed" ]
+then
+    echo "Nvidia drivers are not installed on node $i, please do this first!"
+    exit
+fi
+done
+
+#check for firewall - this does not end the script if an active firewall is found!
+echo -e "Check if firewall daemon is active and open ports"
+for i in $IPS
+do
+echo -e "Open ports on $i..."
+ssh root@$i 'if [ `systemctl is-active firewalld` = "active" ]; then firewall-cmd --permanent --add-port=6443/tcp \
+   && firewall-cmd --permanent --add-port=2379-2380/tcp \
+   && firewall-cmd --permanent --add-port=10250/tcp \
+   && firewall-cmd --permanent --add-port=10251/tcp \
+   && firewall-cmd --permanent --add-port=10252/tcp \
+   && firewall-cmd --permanent --add-port=10255/tcp \
+   && firewall-cmd --zone=public --add-masquerade --permanent \
+   && firewall-cmd --zone=public --add-port=443/tcp \
+   && firewall-cmd --reload; fi'
+done
+
 #Nach Docker Cred fragen
 echo -e "${ORANGE}Your docker.io account is needed to avoid 'pull rate limit' problems...${NC}"
 
@@ -57,6 +97,32 @@ read DOCKER_USER
 DOCKER_PW=""
 echo "docker.io password (input hidden):"
 read -s DOCKER_PW
+echo "Saving credentials..."
+
+AUTH="$(echo -n $DOCKER_USER:$DOCKER_PW  | base64)"
+
+cat << EOF > docker_config.json
+{
+    "auths": {
+        "https://index.docker.io/v1/": {
+            "auth": "${AUTH}"
+        }
+    }
+}
+EOF
+
+#configure iptables
+for i in $IPS
+do
+ssh root@$i "if ! command -v iptables &> /dev/null; then dnf install -y iptables; fi  && iptables -P FORWARD ACCEPT && mkdir -p /root/.docker"
+done
+
+#save docker credentials
+for i in $IPS
+do
+scp docker_config.json root@$i:/root/.docker/config.json
+done
+rm -rf docker_config.json
 
 echo -e "${ORANGE}Do you want an NFS server installed on this node?${NC}"
 select choice in "Yes, please install an NFS server on this node" "No, I'm going to do that manually/provide my own"
@@ -66,8 +132,10 @@ done
 
 if test $REPLY == 1
 then
-mkdir /export && chown -R nobody: /export
+if [ `systemctl is-active firewalld` = "active" ]; then firewall-cmd --permanent --add-service nfs && firewall-cmd --reload && systemctl restart nfs-server; fi
+mkdir -p /export && chown -R nobody: /export
 dnf install nfs-utils -y && systemctl enable --now nfs-server.service
+
 
 #This is insecure and should be fixed by changing database permissions inside the container (e.g. MySQL) and then set to 'root_squash'...
 sed -i '/\/export/d' /etc/exports
@@ -76,90 +144,39 @@ exportfs -a
 #################
 fi
 
-dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-$(rpm -E %rhel).noarch.rpm
-
-dnf install pssh -y
-
-# Prepare pssh file with cecuser
-rm -rf /root/.pssh_hosts_files
-for i in ${IPS};
-do
-cat << EOF >> /root/.pssh_hosts_files
-root@${i}
-EOF
-done
-
-
-# 2 Use PSSH to do prepartion requred on ALL HOSTS [EXECUTED ON FIRST MASTER]
-
-#For CECC systems we need to fake centos distro (RHEL is installed but with private IBM repo)
-pssh -i -t 0 -h ~/.pssh_hosts_files "sudo sed -i 's/ID=\"rhel\"/ID=\"centos\"/g' /etc/os-release"
-
-echo -e "${ORANGE}Installing required packages on all servers${NC}"
-#Prepare all servers (gpgcheck sometimes fails with pssh, you can try to pssh install with gpgcheck)
-pssh -i -h ~/.pssh_hosts_files "dnf --nogpgcheck install -y yum-utils device-mapper-persistent-data lvm2 iproute-tc"
-
-echo -e "${ORANGE}Configure SELinux on all servers${NC}"
-#Configure SELinux - ToCheck: Is this done via kubespray?
-pssh -i -h ~/.pssh_hosts_files "sudo setenforce 0 && \
-sudo sed -i 's/^SELINUX=.*/SELINUX=permissive/g' /etc/selinux/config"
-
-echo -e "Configure swap on all servers"
-#Configure swap - ToCheck: Is this done via kubespray?
-pssh -i -h ~/.pssh_hosts_files "sudo sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab && \
-sudo swapoff -a"
-
-#Configure IPv4 forwarding & sysctl - ToCheck: Is this done via kubespray?
-pssh -i -h ~/.pssh_hosts_files "sudo modprobe overlay && sudo modprobe br_netfilter && \
-sudo tee /etc/sysctl.d/kubernetes.conf << EOF
-net.bridge.bridge-nf-call-ip6tables = 1
-net.bridge.bridge-nf-call-iptables = 1
-net.ipv4.ip_forward = 1
-EOF
-sudo sysctl --system"
-
-echo -e "${ORANGE}Installing docker on all servers. This might take a bit...${NC}"
-#Install docker
-pssh -i -t 0 -h ~/.pssh_hosts_files "sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo && \
-sudo dnf --nogpgcheck install docker-ce docker-ce-cli -y && \
-sudo sudo systemctl enable --now docker"
-
-#Login to overcome pull-rate-limit
-pssh -i -h ~/.pssh_hosts_files "sudo docker login docker.io -u ${DOCKER_USER} -p ${DOCKER_PW}"
+rm -rf /opt/kubespray
+git clone -b v2.19.0 https://github.com/kubernetes-sigs/kubespray.git /opt/kubespray && cd /opt/kubespray
 
 ## Only on Ansible/Master node:
-dnf install wget git python3-netaddr -y
-cd /root
-wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-ppc64le.sh && bash Miniconda3-latest-Linux-ppc64le.sh -b
-export PATH="/root/miniconda3/bin:${PATH}"
-export IBM_POWERAI_LICENSE_ACCEPT=yes
-conda config --prepend channels https://public.dhe.ibm.com/ibmdl/export/pub/software/server/ibm-ai/conda/
-conda config --prepend channels https://ftp.osuosl.org/pub/open-ce/current
-conda config --prepend channels https://opence.mit.edu
-conda create --name py38 python=3.8 -y
-conda init bash
-echo "conda activate py38" >> /root/.bashrc
-source /root/.bashrc
+if ! command -v ansible &> /dev/null
+then
+    dnf install wget git python3-netaddr -y
+    cd ${HOME}
+    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-$(uname -m).sh && bash Miniconda3-latest-Linux-$(uname -m).sh -b
+    rm -rf Miniconda3-latest*.sh
+    export PATH="${HOME}/miniconda3/bin:${PATH}"
+    conda create --name py38 python=3.8 -y
+    conda init bash
+    echo "conda activate py38" >> ${HOME}/.bashrc
+    source ${HOME}/.bashrc
 
-conda install -c conda-forge -y ruamel.yaml==0.16.10 jmespath==0.9.5 pbr==5.4.4 netaddr==0.7.19 jinja2==2.11.3 cryptography==2.8 && pip3 install ansible==2.9.27
+    conda install -y cryptography=2.8 jinja2=2.11.3 pbr=5.4.4 ruamel.yaml.clib=0.2.6 pyyaml=6.0 MarkupSafe=1.1.1
+    cd /opt/kubespray && pip3 install -r requirements-2.9.txt 
+fi
 
-cd ~
-rm -rf /root/kubespray
-git clone -b v2.15.1 https://github.com/kubernetes-sigs/kubespray.git
-wget https://ibm.box.com/shared/static/d9olpybowici8d0kbamblo1wv2tq7gfh.patch -O ppc64le.patch
+#yq used to replace containerd while it is not officially released for ppc (will come with 1.7.0)
+wget https://github.com/mikefarah/yq/releases/download/v4.26.1/yq_linux_ppc64le -O /usr/bin/yq && chmod +x /usr/bin/yq
+yq -i '.containerd_version = "1.7.0-alpha.ppctest"' roles/download/defaults/main.yml
+yq -i '.containerd_download_url = "https://github.com/dmcgowan/containerd/releases/download/v{{ containerd_version }}/containerd-{{ containerd_version }}-linux-{{ image_arch }}.tar.gz"' roles/download/defaults/main.yml
+yq -i '.containerd_archive_checksums.ppc64le += {"1.7.0-alpha.ppctest": "d9e84c97f48f57e7d8ca38741af078951da4e36c88f17e2835e0fb982f4968bc"}' roles/download/defaults/main.yml
 
-cd kubespray && git apply ../ppc64le.patch
 
-###
-# vi roles/network_plugin/calico/defaults/main.yml & edit calico_iptables_backend: "Legacy" zu "NFT"
-###
-
-#Legacy iptables is not working anymore on RHEL/CentOS8, therefore change to NFT or Auto
-sed -i "s/calico_iptables_backend: \"Legacy\"/calico_iptables_backend: \"NFT\"/g" roles/network_plugin/calico/defaults/main.yml
+sed -i "s/kube_version: .*/kube_version: v1.21.11/g" inventory/sample/group_vars/k8s_cluster/k8s-cluster.yml
+sed -i "s/kube_version: .*/kube_version: v1.21.11/g" roles/kubespray-defaults/defaults/main.yaml
 
 #For Kubeflow this change is needed https://github.com/kubeflow/manifests/issues/959
-sed -i '/kube_kubeadm_apiserver_extra_args/d' roles/kubernetes/master/defaults/main/main.yml
-cat << EOF >> roles/kubernetes/master/defaults/main/main.yml
+sed -i '/kube_kubeadm_apiserver_extra_args/d' roles/kubernetes/control-plane/defaults/main/main.yml
+cat << EOF >> roles/kubernetes/control-plane/defaults/main/main.yml
 kube_kubeadm_apiserver_extra_args: {
   service-account-issuer: kubernetes.default.svc,
   service-account-signing-key-file: /etc/kubernetes/ssl/sa.key
@@ -176,10 +193,14 @@ EOF
 
 CONFIG_FILE=inventory/mycluster/hosts.yaml python3 contrib/inventory_builder/inventory.py ${IPS[@]}
 
-echo "alias oc='kubectl'" >> /root/.bashrc
-echo "alias ocproject='kubectl config set-context --current --namespace'" >> /root/.bashrc
-source /root/.bashrc
+echo "alias oc='kubectl'" >> ${HOME}/.bashrc
+echo "alias ocproject='kubectl config set-context --current --namespace'" >> ${HOME}/.bashrc
+source ${HOME}/.bashrc
 
-echo -e "${GREEN}Done!${NC} Kubespray initialized with default settings. You can review and change cluster parameters under:\ncat inventory/mycluster/group_vars/all/all.yml\ncat inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml"
-echo -e "If everything looks fine run the playbook with ${BLUE}'source /root/.bashrc && cd /root/kubespray && ansible-playbook -i inventory/mycluster/hosts.yaml  --become --become-user=root cluster.yml'${NC}"
-echo -e "This might take 10-15 minutes to complete. You can then run the next script to install the nfs-provisioner and the k8s-dashboard"
+echo -e "${GREEN}Done!${NC} Kubespray initialized with default settings. You can review and change cluster parameters under:\ncat /opt/kubespray/inventory/mycluster/group_vars/all/all.yml\ncat /opt/kubespray/inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml"
+echo -e "If everything looks fine run the playbook with ${BLUE}'source ${HOME}/.bashrc && cd /opt/kubespray && ansible-playbook -i inventory/mycluster/hosts.yaml  --become --become-user=root cluster.yml'${NC}"
+echo -e "This might take 45-60 minutes to complete. You can then run the next script to install the nfs-provisioner and the k8s-dashboard"
+
+## ToDo's:
+#nerdctl login -u <user>
+
