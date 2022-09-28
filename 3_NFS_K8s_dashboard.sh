@@ -28,7 +28,7 @@ helm install nfs-subdir-external-provisioner nfs-subdir-external-provisioner/nfs
 kubectl patch storageclass nfs-client -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
 
 # Optional 3 create dashboard:
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/master/aio/deploy/recommended.yaml 
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.6.1/aio/deploy/recommended.yaml
 
 # Patch and use NodePort
 kubectl patch svc -n kubernetes-dashboard kubernetes-dashboard -p '{"spec":{"type": "NodePort"}}'
