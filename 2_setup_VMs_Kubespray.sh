@@ -1,4 +1,3 @@
-
 #!/bin/bash
 
 ARCH=`arch`
@@ -25,12 +24,12 @@ fi
 #Nach den IPs fragen, falls keine CECC Maschine
 if [ -z "$IPS" ]
 then
-    echo "Enter the IPs of your servers (including this) seperated by space (e.g. '10.10.10.1 10.10.10.2')"
+    echo -e "Enter the IPs of your servers (including this) seperated by space (e.g. '10.10.10.1 10.10.10.2')"
     read IPS
     sed -i '/IPS=/d' ${HOME}/.bashrc 
     echo "IPS=\"$IPS\"" >> ${HOME}/.bashrc
 else
-    echo "${GREEN}Found the following IPs: ${IPS}${NC}"
+    echo -e "${GREEN}Found the following IPs: ${IPS}${NC}"
 fi
 
 echo -e "Checking if passwordless ssh is working..."
@@ -52,7 +51,7 @@ echo -e "Checking if there are any GPU nodes available..."
 GPU_NODES=""
 for i in $IPS
 do
-    var=$(ssh root@$i 'if ! command -v pciutils &> /dev/null; then dnf install -y pciutils; fi && if [ -z "$(lspci | grep -i nvidia)" ]; then echo "no_gpu"; else echo "gpu"; fi')
+    var=$(ssh root@$i 'if ! command -v lspci &> /dev/null; then dnf install -y pciutils; fi && if [ -z "$(lspci | grep -i nvidia)" ]; then echo "no_gpu"; else echo "gpu"; fi')
     if [ "$var" = "gpu" ]
     then
         echo "Found GPU on node $i!"
@@ -144,35 +143,18 @@ exportfs -a
 #################
 fi
 
+dnf install python3 python3-netaddr git -y
+pip3 install --upgrade pip
+
 rm -rf /opt/kubespray
-git clone -b v2.19.0 https://github.com/kubernetes-sigs/kubespray.git /opt/kubespray && cd /opt/kubespray
+git clone -b v2.20.0 https://github.com/kubernetes-sigs/kubespray.git /opt/kubespray && cd /opt/kubespray
 
 ## Only on Ansible/Master node:
-if ! command -v ansible &> /dev/null
-then
-    dnf install wget git python3-netaddr -y
-    cd ${HOME}
-    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-$(uname -m).sh && bash Miniconda3-latest-Linux-$(uname -m).sh -b
-    rm -rf Miniconda3-latest*.sh
-    export PATH="${HOME}/miniconda3/bin:${PATH}"
-    conda create --name py38 python=3.8 -y
-    conda init bash
-    echo "conda activate py38" >> ${HOME}/.bashrc
-    source ${HOME}/.bashrc
+ANSIBLE_VERSION=2.11
+pip3 install --extra-index-url=https://repo.fury.io/mgiessing -r requirements-$ANSIBLE_VERSION.txt
 
-    conda install -y cryptography=2.8 jinja2=2.11.3 pbr=5.4.4 ruamel.yaml.clib=0.2.6 pyyaml=6.0 MarkupSafe=1.1.1
-    cd /opt/kubespray && pip3 install -r requirements-2.9.txt 
-fi
-
-#yq used to replace containerd while it is not officially released for ppc (will come with 1.7.0)
-wget https://github.com/mikefarah/yq/releases/download/v4.26.1/yq_linux_ppc64le -O /usr/bin/yq && chmod +x /usr/bin/yq
-yq -i '.containerd_version = "1.7.0-alpha.ppctest"' roles/download/defaults/main.yml
-yq -i '.containerd_download_url = "https://github.com/dmcgowan/containerd/releases/download/v{{ containerd_version }}/containerd-{{ containerd_version }}-linux-{{ image_arch }}.tar.gz"' roles/download/defaults/main.yml
-yq -i '.containerd_archive_checksums.ppc64le += {"1.7.0-alpha.ppctest": "d9e84c97f48f57e7d8ca38741af078951da4e36c88f17e2835e0fb982f4968bc"}' roles/download/defaults/main.yml
-
-
-sed -i "s/kube_version: .*/kube_version: v1.21.11/g" inventory/sample/group_vars/k8s_cluster/k8s-cluster.yml
-sed -i "s/kube_version: .*/kube_version: v1.21.11/g" roles/kubespray-defaults/defaults/main.yaml
+#sed -i "s/kube_version: .*/kube_version: v1.21.11/g" inventory/sample/group_vars/k8s_cluster/k8s-cluster.yml
+#sed -i "s/kube_version: .*/kube_version: v1.21.11/g" roles/kubespray-defaults/defaults/main.yaml
 
 #For Kubeflow this change is needed https://github.com/kubeflow/manifests/issues/959
 sed -i '/kube_kubeadm_apiserver_extra_args/d' roles/kubernetes/control-plane/defaults/main/main.yml
@@ -203,4 +185,3 @@ echo -e "This might take 45-60 minutes to complete. You can then run the next sc
 
 ## ToDo's:
 #nerdctl login -u <user>
-
